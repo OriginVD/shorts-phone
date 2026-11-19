@@ -32,6 +32,12 @@
 
         </activity>
 
+        <!-- 앱을 나가도 재생과 영상 받기가 계속되게 해 주는 서비스 -->
+        <service
+            android:name=".BackgroundService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback|dataSync" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -46,4 +52,9 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 </manifest>
