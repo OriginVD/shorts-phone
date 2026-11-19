@@ -22,13 +22,15 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
-    // 항상 같은 열쇠로 서명해야 새 버전을 지우지 않고 덮어 설치할 수 있어요
+    // 항상 같은 열쇠로 서명해야 새 버전을 지우지 않고 덮어 설치할 수 있어요.
+    // 열쇠는 저장소에 암호화돼 있고(app-signing.jks.enc), 빌드할 때 GitHub Secrets의
+    // SIGNING_PASSWORD로 풀어서 app-signing.jks를 만들어요. (.github/workflows/android-app.yml)
     signingConfigs {
         shorts {
             storeFile file('../../app-signing.jks')
-            storePassword 'shortsplayer'
+            storePassword System.getenv("SIGNING_PASSWORD")
             keyAlias 'shorts'
-            keyPassword 'shortsplayer'
+            keyPassword System.getenv("SIGNING_PASSWORD")
         }
     }
     // yt-dlp가 파이썬/ffmpeg 실행 파일을 폰에 풀어서 써야 해서 필요해요

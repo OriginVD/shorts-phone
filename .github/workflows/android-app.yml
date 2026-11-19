@@ -34,12 +34,25 @@ jobs:
           npm ci
           npm run sync
 
+      - name: 서명 열쇠 풀기
+        env:
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+        run: |
+          if [ -z "$SIGNING_PASSWORD" ]; then
+            echo "::error::GitHub Secrets에 SIGNING_PASSWORD가 없어요. 저장소 Settings > Secrets and variables > Actions 에서 넣어 주세요."
+            exit 1
+          fi
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in app-signing.jks.enc -out app-signing.jks -pass env:SIGNING_PASSWORD
+
       - name: APK 만들기
         working-directory: android-app/android
+        env:
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
         run: |
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
           cp app/build/outputs/apk/release/app-release.apk ../../shorts-player.apk
+          rm -f ../app-signing.jks
 
       - uses: actions/upload-artifact@v4
         with:
