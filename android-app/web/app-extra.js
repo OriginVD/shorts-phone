@@ -5,7 +5,13 @@
 (function () {
   const Cap = window.Capacitor;
   if (!Cap || !Cap.isNativePlatform || !Cap.isNativePlatform()) return;
-  const Dl = Cap.registerPlugin('ShortsDownloader');
+  try { setupAppExtras(Cap); }
+  catch (e) { setStatus('앱 기능을 켜지 못했어요: ' + (e && e.message)); }
+})();
+
+function setupAppExtras(Cap) {
+  const registerPlugin = (window.capacitorExports && window.capacitorExports.registerPlugin) || Cap.registerPlugin;
+  const Dl = registerPlugin('ShortsDownloader');
 
   // ---------------- 화면 ----------------
   const style = document.createElement('style');
@@ -160,4 +166,4 @@
     }
     report();
   });
-})();
+}
