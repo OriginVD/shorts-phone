@@ -19,4 +19,8 @@
   새 APK를 받아 설치하면 기존 앱 위에 덮어써지고, 넣어 둔 영상과 설정은 그대로 남아요.
 - 앱은 늘 같은 열쇠(`android-app/app-signing.jks`)로 서명해요. 이 파일을 지우거나 바꾸면 덮어 설치가 안 되고,
   앱을 지웠다 다시 깔아야 해요(그때는 넣어 둔 영상도 지워져요).
+- 앱에서는 **링크로 영상 받기**도 돼요. 링크를 붙여 넣고 [⬇ 받기]를 누르거나, 틱톡/유튜브 앱에서
+  "공유" → "쇼츠 플레이어"를 고르면 받아서 목록에 넣어요. (안에서 yt-dlp를 써요. `android-app/web/app-extra.js`,
+  `ShortsDownloaderPlugin.java`) 이 기능은 앱에만 있고 웹 재생기(`index.html`)는 그대로예요.
+- APK는 64비트 ARM 폰용만 만들어요. (yt-dlp/ffmpeg 때문에 크기가 커서)
 - `deploy-phone.ps1`로 다시 올릴 때 `android-app/`, `.github/` 폴더가 지워지지 않게 주의하세요.

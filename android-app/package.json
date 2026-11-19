@@ -4,7 +4,7 @@
   "private": true,
   "description": "쇼츠 플레이어 안드로이드 앱 (index.html을 감싼 Capacitor 앱)",
   "scripts": {
-    "prepare-web": "node -e \"require('fs').mkdirSync('www',{recursive:true});require('fs').copyFileSync('../index.html','www/index.html')\"",
+    "prepare-web": "node tools/prepare-web.js",
     "sync": "npm run prepare-web && npx cap sync android"
   },
   "dependencies": {
