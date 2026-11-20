@@ -1,0 +1,17 @@
+{
+  "name": "shorts-player-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "쇼츠 플레이어 안드로이드 앱 (index.html을 감싼 Capacitor 앱)",
+  "scripts": {
+    "prepare-web": "node tools/prepare-web.js",
+    "sync": "npm run prepare-web && npx cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/core": "^8.6.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.6.2"
+  }
+}
