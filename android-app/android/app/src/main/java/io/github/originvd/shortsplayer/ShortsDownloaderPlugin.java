@@ -36,8 +36,9 @@ public class ShortsDownloaderPlugin extends Plugin {
     private static final String TAG = "ShortsDownloader";
     private static final String PROCESS_ID = "shorts-dl";
 
+    // yt-dlp 준비·업데이트·받기는 모두 이 한 줄에서 차례대로 해요.
+    // (업데이트는 yt-dlp 파일을 지우고 새로 복사해서, 받기와 동시에 돌면 파일이 깨져요)
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
-    private final ExecutorService updater = Executors.newSingleThreadExecutor();
     private volatile boolean ready = false;
     private volatile boolean updateTried = false;
     private String pendingShare = null;
@@ -49,6 +50,8 @@ public class ShortsDownloaderPlugin extends Plugin {
     @Override
     public void load() {
         pendingShare = sharedText(getActivity().getIntent());
+        // 링크를 넣기 전에 미리 준비와 업데이트를 해 둬요
+        worker.execute(this::prepareTools);
         BackgroundService.listener = action -> {
             JSObject data = new JSObject();
             data.put("action", action);
@@ -120,24 +123,46 @@ public class ShortsDownloaderPlugin extends Plugin {
         call.resolve(ret);
     }
 
-    private synchronized void ensureReady() throws Exception {
+    // ---- 아래 셋은 꼭 worker 줄 안에서만 불러요 ----
+
+    private void ensureReady() throws Exception {
         if (ready) return;
         YoutubeDL.getInstance().init(getContext());
         FFmpeg.getInstance().init(getContext());
         ready = true;
     }
 
-    /** 사이트가 바뀌면 옛 yt-dlp로는 못 받을 수 있어서, 앱을 켤 때마다 한 번 새 버전을 확인해요. */
-    private void updateInBackground() {
+    /** 준비하고, 사이트가 바뀌어도 받을 수 있게 앱을 켤 때마다 한 번 yt-dlp 새 버전을 확인해요. */
+    private void prepareTools() {
+        try {
+            ensureReady();
+        } catch (Exception e) {
+            Log.e(TAG, "init failed", e);
+            return;
+        }
         if (updateTried) return;
         updateTried = true;
-        updater.execute(() -> {
-            try {
-                YoutubeDL.getInstance().updateYoutubeDL(getContext(), YoutubeDL.UpdateChannel._STABLE);
-            } catch (Exception e) {
-                Log.w(TAG, "yt-dlp update failed", e);
-            }
-        });
+        try {
+            YoutubeDL.getInstance().updateYoutubeDL(getContext(), YoutubeDL.UpdateChannel._STABLE);
+        } catch (Exception e) {
+            Log.w(TAG, "yt-dlp update failed", e);
+        }
+    }
+
+    /** yt-dlp 파일이 깨졌을 때: 지우고 앱에 들어 있는 원래 yt-dlp로 되돌려요. 다음에 켤 때 다시 업데이트해요. */
+    private void resetYtdlp() throws Exception {
+        File dir = new File(new File(getContext().getNoBackupFilesDir(), YoutubeDL.baseName), YoutubeDL.ytdlpDirName);
+        deleteTree(dir);
+        getContext().getSharedPreferences(YoutubeDL.baseName, android.content.Context.MODE_PRIVATE)
+            .edit().remove("dlpVersion").remove("dlpVersionName").apply();
+        YoutubeDL.getInstance().init_ytdlp(getContext(), dir);
+        updateTried = false;
+    }
+
+    private static boolean looksBroken(Exception e) {
+        String m = String.valueOf(e.getMessage());
+        return m.contains("zipimport") || m.contains("ZipImportError") || m.contains("bad local file header")
+            || m.contains("BadZipFile") || m.contains("can't find '__main__' module");
     }
 
     private File workDir() {
@@ -171,8 +196,7 @@ public class ShortsDownloaderPlugin extends Plugin {
             try {
                 if (myGen != generation.get()) throw new YoutubeDL.CanceledException();
                 setDownloadState(true, 0);
-                ensureReady();
-                updateInBackground();
+                prepareTools();
                 dir.mkdirs();
 
                 YoutubeDLRequest req = new YoutubeDLRequest(url.trim());
@@ -186,19 +210,20 @@ public class ShortsDownloaderPlugin extends Plugin {
                 req.addOption("--no-mtime");
                 req.addOption("--no-part");
 
-                final int[] last = { -1 };
-                YoutubeDLResponse res = YoutubeDL.getInstance().execute(req, PROCESS_ID, (progress, eta, line) -> {
-                    int pct = Math.max(0, Math.min(100, Math.round(progress)));
-                    JSObject p = new JSObject();
-                    p.put("percent", progress);
-                    p.put("eta", eta);
-                    notifyListeners("progress", p);
-                    if (pct != last[0]) {
-                        last[0] = pct;
-                        setDownloadState(true, pct);
-                    }
-                    return Unit.INSTANCE;
-                });
+                YoutubeDLResponse res;
+                try {
+                    res = runYtdlp(req);
+                } catch (YoutubeDL.CanceledException e) {
+                    throw e;
+                } catch (Exception e) {
+                    if (!looksBroken(e)) throw e;
+                    // yt-dlp 파일이 깨졌으면 원래 것으로 되돌리고 한 번 더 해 봐요
+                    Log.w(TAG, "yt-dlp looks broken, resetting", e);
+                    resetYtdlp();
+                    deleteTree(dir);
+                    dir.mkdirs();
+                    res = runYtdlp(req);
+                }
 
                 File best = null;
                 File[] files = dir.listFiles();
@@ -229,6 +254,22 @@ public class ShortsDownloaderPlugin extends Plugin {
                 queued.decrementAndGet();
                 setDownloadState(queued.get() > 0, 0);
             }
+        });
+    }
+
+    private YoutubeDLResponse runYtdlp(YoutubeDLRequest req) throws Exception {
+        final int[] last = { -1 };
+        return YoutubeDL.getInstance().execute(req, PROCESS_ID, (progress, eta, line) -> {
+            int pct = Math.max(0, Math.min(100, Math.round(progress)));
+            JSObject p = new JSObject();
+            p.put("percent", progress);
+            p.put("eta", eta);
+            notifyListeners("progress", p);
+            if (pct != last[0]) {
+                last[0] = pct;
+                setDownloadState(true, pct);
+            }
+            return Unit.INSTANCE;
         });
     }
 
