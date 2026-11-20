@@ -153,6 +153,14 @@ function setupAppExtras(Cap) {
   document.getElementById('btnPlay').addEventListener('click', () => { if (!video.paused) userPaused = true; }, true);
   video.addEventListener('click', () => { if (!video.paused) userPaused = true; }, true);
 
+  // 폰이 못 트는 형식이면 알려 주고 다음 영상으로 넘어가요
+  video.addEventListener('error', () => {
+    if (pos < 0 || !video.getAttribute('src')) return;
+    const it = items[order[pos]];
+    setStatus(`"${it ? it.title : '이 영상'}"은(는) 이 폰에서 재생할 수 없는 형식이에요. 목록에서 지우고 다시 받아 주세요.`);
+    setTimeout(() => { if (pos >= 0) next(); }, 1500);
+  });
+
   Dl.addListener('media', ({ action }) => {
     if (action === 'toggle') {
       if (pos < 0) return;

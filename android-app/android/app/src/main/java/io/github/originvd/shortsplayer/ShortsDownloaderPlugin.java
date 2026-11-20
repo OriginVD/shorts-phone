@@ -202,9 +202,10 @@ public class ShortsDownloaderPlugin extends Plugin {
                 YoutubeDLRequest req = new YoutubeDLRequest(url.trim());
                 // 이름은 PC에서 받던 것과 같은 모양: "출처_제목 [id].mp4"
                 req.addOption("-o", dir.getAbsolutePath() + "/%(extractor_key)s_%(title).80B [%(id)s].%(ext)s");
-                // 화질은 최대 1080p (세로 영상도 짧은 쪽 기준), 되도록 폰에서 잘 돌아가는 h264/mp4로
-                req.addOption("-f", "bv*+ba/b");
-                req.addOption("-S", "res:1080,vcodec:h264,ext:mp4:m4a");
+                // 코덱은 무조건 h264를 먼저 골라요. 틱톡은 1080p를 h265나 bytevc2(틱톡 전용)로 주는데,
+                // 앱 안 재생기(WebView)는 이걸 못 트는 폰이 많아요. 그다음 화질은 최대 1080p (짧은 쪽 기준)
+                req.addOption("-f", "bv*[vcodec!*=bytevc2]+ba/b[vcodec!*=bytevc2]/bv*+ba/b");
+                req.addOption("-S", "vcodec:h264,res:1080,ext:mp4:m4a");
                 req.addOption("--merge-output-format", "mp4");
                 req.addOption("--no-playlist");
                 req.addOption("--no-mtime");
