@@ -167,6 +167,54 @@ function setupAppExtras(Cap) {
     setTimeout(() => { if (pos >= 0) next(); }, 1500);
   });
 
+  // ---------------- 소리 키우기 ----------------
+  // 영상 자체가 작게 녹음된 경우가 많아서, 볼륨 100% 위로 더 키울 수 있게 해요. (1배 → 1.5배 → 2배 → 3배)
+  // 처음 켤 때만 Web Audio로 연결해요. 1배일 때는 연결하지 않아서 지금과 똑같이 재생돼요.
+  const BOOSTS = [1, 1.5, 2, 3];
+  let boost = Number(localStorage.getItem('shorts-boost')) || 1;
+  if (!BOOSTS.includes(boost)) boost = 1;
+  let audioCtx = null, gainNode = null;
+
+  function applyBoost() {
+    if (boost > 1 && !audioCtx) {
+      try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioCtx.createMediaElementSource(video);
+        gainNode = audioCtx.createGain();
+        // 너무 키우면 소리가 찢어지지 않게 살짝 눌러 줘요
+        const limiter = audioCtx.createDynamicsCompressor();
+        limiter.threshold.value = -3;
+        limiter.knee.value = 0;
+        limiter.ratio.value = 20;
+        limiter.attack.value = 0.003;
+        limiter.release.value = 0.1;
+        source.connect(gainNode).connect(limiter).connect(audioCtx.destination);
+      } catch (e) {
+        audioCtx = null;
+        boost = 1;
+        setStatus('이 폰에서는 소리 키우기를 쓸 수 없어요.');
+      }
+    }
+    if (gainNode) gainNode.gain.value = boost;
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+    boostBtn.textContent = `🔊 ${boost}배`;
+    boostBtn.classList.toggle('on', boost > 1);
+  }
+
+  const boostBtn = document.createElement('button');
+  boostBtn.className = 'toggle';
+  boostBtn.id = 'btnBoost';
+  document.getElementById('volVal').after(boostBtn);
+  boostBtn.onclick = () => {
+    boost = BOOSTS[(BOOSTS.indexOf(boost) + 1) % BOOSTS.length];
+    localStorage.setItem('shorts-boost', String(boost));
+    applyBoost();
+  };
+  // 오디오 연결은 재생이 시작될 때 해요 (폰이 그 전에는 소리를 막을 수 있어서)
+  video.addEventListener('play', () => applyBoost());
+  boostBtn.textContent = `🔊 ${boost}배`;
+  boostBtn.classList.toggle('on', boost > 1);
+
   Dl.addListener('media', ({ action }) => {
     if (action === 'toggle') {
       if (pos < 0) return;
