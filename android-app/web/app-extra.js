@@ -61,8 +61,14 @@ function setupAppExtras(Cap) {
         setStatus('이 영상은 이미 들어 있어요.');
         return;
       }
-      const res = await fetch(Cap.convertFileSrc(r.path));
+      // 경로의 글자(#, ?, %, 공백 등)를 주소용으로 바꿔야 파일을 제대로 읽어요
+      const safePath = '/' + r.path.split('/').filter(Boolean).map(encodeURIComponent).join('/');
+      const res = await fetch(Cap.convertFileSrc(safePath));
+      if (!res.ok) throw new Error(`받은 파일을 읽지 못했어요 (${res.status})`);
       let blob = await res.blob();
+      if (blob.size === 0 || (r.size && blob.size !== r.size)) {
+        throw new Error(`받은 파일을 다 읽지 못했어요 (${blob.size}/${r.size})`);
+      }
       if (/\.mp4$/i.test(r.name)) blob = new Blob([blob], { type: 'video/mp4' });
       await dbRun('readwrite', s => s.put({ name: r.name, blob, added: Date.now() }));
 
@@ -79,7 +85,7 @@ function setupAppExtras(Cap) {
     } catch (e) {
       setStatus(e && e.name === 'QuotaExceededError'
         ? '저장하지 못했어요. 핸드폰 저장 공간이 부족한지 확인해 주세요.'
-        : '받은 영상을 넣지 못했어요.');
+        : '받은 영상을 넣지 못했어요. ' + ((e && e.message) || ''));
       return; // 파일은 남겨 두고 다음에 앱을 켤 때 다시 넣어 봐요
     }
     Dl.remove({ path: r.path }).catch(() => {});

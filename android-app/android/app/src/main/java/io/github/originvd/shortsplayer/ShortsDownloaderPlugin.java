@@ -17,7 +17,14 @@ import com.yausername.ffmpeg.FFmpeg;
 import com.yausername.youtubedl_android.YoutubeDL;
 import com.yausername.youtubedl_android.YoutubeDLRequest;
 import com.yausername.youtubedl_android.YoutubeDLResponse;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.Executors;
@@ -237,12 +244,17 @@ public class ShortsDownloaderPlugin extends Plugin {
                     call.reject("받은 파일을 찾지 못했어요.\n" + lastLines(res.getErr()));
                     return;
                 }
+                // 제목에는 #, ?, % 같은 글자가 많아서 파일은 숫자 이름으로 두고, 원래 이름은 옆 파일(.name)에 적어 둬요
                 File done = doneDir();
                 done.mkdirs();
-                File target = new File(done, best.getName());
-                if (target.exists()) target.delete();
+                String ext = best.getName().contains(".") ? best.getName().substring(best.getName().lastIndexOf('.')) : ".mp4";
+                if (!ext.matches("\\.[A-Za-z0-9]{1,5}")) ext = ".mp4";
+                String id = String.valueOf(System.currentTimeMillis());
+                File target = new File(done, id + ext);
+                File nameFile = new File(done, id + ext + ".name");
+                writeText(nameFile, best.getName());
                 if (!best.renameTo(target)) {
-                    target = best; // 옮기지 못하면 그 자리에서 써요
+                    copyFile(best, target);
                 }
                 call.resolve(fileInfo(target));
             } catch (YoutubeDL.CanceledException e) {
@@ -274,10 +286,39 @@ public class ShortsDownloaderPlugin extends Plugin {
         });
     }
 
+    private static void copyFile(File from, File to) throws IOException {
+        try (InputStream in = new FileInputStream(from); OutputStream out = new FileOutputStream(to)) {
+            byte[] buf = new byte[1 << 16];
+            int n;
+            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+        }
+    }
+
+    private static void writeText(File f, String text) throws IOException {
+        try (OutputStream out = new FileOutputStream(f)) {
+            out.write(text.getBytes(StandardCharsets.UTF_8));
+        }
+    }
+
+    private static String readName(File video) {
+        File nameFile = new File(video.getPath() + ".name");
+        if (nameFile.isFile()) {
+            try (InputStream in = new FileInputStream(nameFile)) {
+                ByteArrayOutputStream b = new ByteArrayOutputStream();
+                byte[] buf = new byte[4096];
+                int n;
+                while ((n = in.read(buf)) > 0) b.write(buf, 0, n);
+                String name = new String(b.toByteArray(), StandardCharsets.UTF_8).trim();
+                if (!name.isEmpty()) return name;
+            } catch (IOException ignored) {}
+        }
+        return video.getName();
+    }
+
     private static JSObject fileInfo(File f) {
         JSObject o = new JSObject();
         o.put("path", f.getAbsolutePath());
-        o.put("name", f.getName());
+        o.put("name", readName(f));
         o.put("size", f.length());
         return o;
     }
@@ -302,7 +343,7 @@ public class ShortsDownloaderPlugin extends Plugin {
     public void listDone(PluginCall call) {
         JSArray arr = new JSArray();
         File[] files = doneDir().listFiles();
-        if (files != null) for (File f : files) if (f.isFile()) arr.put(fileInfo(f));
+        if (files != null) for (File f : files) if (f.isFile() && !f.getName().endsWith(".name")) arr.put(fileInfo(f));
         JSObject ret = new JSObject();
         ret.put("files", arr);
         call.resolve(ret);
@@ -318,6 +359,7 @@ public class ShortsDownloaderPlugin extends Plugin {
                 String p = f.getCanonicalPath();
                 if (p.startsWith(doneDir().getCanonicalPath() + File.separator) || p.startsWith(workDir().getCanonicalPath() + File.separator)) {
                     f.delete();
+                    new File(f.getPath() + ".name").delete();
                 }
             } catch (Exception e) {
                 Log.w(TAG, "remove failed", e);
