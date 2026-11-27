@@ -3,6 +3,11 @@
   "appName": "쇼츠 플레이어",
   "webDir": "www",
   "android": {
-    "backgroundColor": "#0E0E13"
+    "backgroundColor": "#0B1210"
+  },
+  "plugins": {
+    "SystemBars": {
+      "style": "DARK"
+    }
   }
 }

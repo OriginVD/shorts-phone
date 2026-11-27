@@ -3,9 +3,9 @@ import glob
 from PIL import Image, ImageDraw
 
 RES = 'android/app/src/main/res'
-BG = (14, 14, 19)        # #0E0E13
-PINK = (255, 61, 127)    # #FF3D7F
-CYAN = (37, 244, 238)    # #25F4EE
+BG = (11, 18, 16)        # #0B1210
+GREEN = (16, 185, 129)    # #10B981 (초록)
+MINT = (167, 243, 208)   # #A7F3D0 (민트)
 SS = 4                   # 부드럽게 그리려고 크게 그린 뒤 줄여요
 
 
@@ -18,8 +18,8 @@ def mark(size, scale=1.0):
     w, h = S * 0.36 * scale, S * 0.58 * scale
     box = [c - w / 2, c - h / 2, c + w / 2, c + h / 2]
     off = S * 0.025 * scale
-    d.rounded_rectangle([box[0] - off, box[1] + off, box[2] - off, box[3] + off], radius=w * 0.18, fill=CYAN)
-    d.rounded_rectangle(box, radius=w * 0.18, fill=PINK)
+    d.rounded_rectangle([box[0] - off, box[1] + off, box[2] - off, box[3] + off], radius=w * 0.18, fill=MINT)
+    d.rounded_rectangle(box, radius=w * 0.18, fill=GREEN)
     t = w * 0.30
     d.polygon([(c - t * 0.8, c - t), (c - t * 0.8, c + t), (c + t * 1.0, c)], fill='white')
     return im.resize((size, size), Image.LANCZOS)

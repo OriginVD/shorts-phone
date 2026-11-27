@@ -123,7 +123,11 @@ function setupAppExtras(Cap) {
   input.addEventListener('keydown', e => { if (e.key === 'Enter') { input.blur(); addLinks(input.value); } });
 
   // 다른 앱에서 "공유"로 링크를 보내면 바로 받아요
-  const onShared = text => { if (text) addLinks(text); };
+  const onShared = text => {
+    if (!text) return;
+    if (window.appShowTab) window.appShowTab('get');
+    addLinks(text);
+  };
   Dl.getSharedText().then(r => onShared(r.text)).catch(() => {});
   Dl.addListener('shared', r => onShared(r.text));
 
